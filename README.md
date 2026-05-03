@@ -162,7 +162,7 @@ docker compose up -d
 
 ```bash
 # Configure with CMake (from project root)
-cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
 # Build the project
 cmake --build build
