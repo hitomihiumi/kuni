@@ -591,17 +591,16 @@ Use absolute time in your queries.
                     try {
                         // comment their dickpic.
                         co_await telegramPostMessage(chatId, "фу какой маленький");
+                        // give them a chance to see the last message, because later we will delete the entire chat.
+                        co_await AThread::asyncSleep(5s);
                     } catch (const AException& e) {}
                     // Block the user from sending new DMs
                     co_await telegram()->sendQueryWithResult(
                         TelegramClient::toPtr(td::td_api::setMessageSenderBlockList(
                             td::td_api::make_object<td::td_api::messageSenderUser>(chatId),
                             td::td_api::make_object<td::td_api::blockListMain>())));
-                    // Remove chat from chat list and delete history
-                    // Alex2772 (Apr 30):
-                    // commented out, too destructive
-                    // co_await telegram()->sendQueryWithResult(
-                    //     TelegramClient::toPtr(td::td_api::deleteChatHistory(chatId, true, true)));
+                    co_await telegram()->sendQueryWithResult(
+                        TelegramClient::toPtr(td::td_api::deleteChatHistory(chatId, true, true)));
                     break;
                 case td::td_api::chatTypeBasicGroup::ID:
                 case td::td_api::chatTypeSupergroup::ID:
