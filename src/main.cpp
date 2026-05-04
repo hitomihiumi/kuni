@@ -950,7 +950,7 @@ Use absolute time in your queries.
                         if (reaction->total_count_ > 3) {
                             // if reactions above 3, format as emoji + react counts, just like regular telegram clients
                             // do.
-                            reactionsAttr += "{}"_format(emoji, reaction->total_count_);
+                            reactionsAttr += "{}"_format(reaction->total_count_);
                             continue;
                         }
                         reactionsAttr += " by ";
