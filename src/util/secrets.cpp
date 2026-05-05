@@ -32,11 +32,13 @@ toml::basic_value<toml::type_config> util::secrets() {
     static auto data = [] {
         const auto location = APath("data") / "secrets.toml";
         if (!location.isRegularFileExists()) {
+            location.parent().makeDirs();
             AFileOutputStream(location) << TEMPLATE;
             ALogger::err(LOG_TAG) << R"(
 ########################################################################################################################
 #                                                      IMPORTANT                                                       #
 #                                         Please populate data/secrets.toml                                            #
+#                                                     and restart                                                      #
 ########################################################################################################################
 )";
             std::exit(-1);
