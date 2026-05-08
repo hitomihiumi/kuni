@@ -1258,7 +1258,10 @@ Some channels have reactions enabled. In that case, you can sometimes react with
             tools = OpenAITools{
                 {
                     .name = "send_telegram_message",
-                    .description = "Sends a message to the \"{}\" chat"_format(chat->title_),
+                    .description = "Sends a message to the \"{}\" chat. Requirements:\n"
+                       "- before asking them a question, double-check yourself with #ask_query\n"
+                       "- you should send multiple small short messgaes. "
+                       "Example: (1) \"hi~\", (2) \"how are you?~\". 1-5 words."_format(chat->title_),
                     .parameters =
                         {
                             .properties =
@@ -1524,8 +1527,16 @@ Some channels have reactions enabled. In that case, you can sometimes react with
 
                         ++*messagesInRow;
 
-                        if (*messagesInRow > 2) {
+                        if (*messagesInRow > 5) {
                             co_return "Message sent successfully to \"{}\". Warning: you have sent {} messages in a row! Give your participant space to breathe!"_format(chat->title_, *messagesInRow);
+                        }
+                        if (*messagesInRow < 3) {
+                            // in addition to prompt, we'll encourage llm to add a follow-up messages to make dialogs more
+                            // natural:
+                            // - (1) hi~
+                            // - (2) how are you?
+                            // it is still up to LLM to decide whether or not to add follow-ups.
+                            co_return "Message sent successfully to \"{}\". You should add a follow-up #send_telegram_message."_format(chat->title_);
                         }
 
                         // llm really likes success messages.
