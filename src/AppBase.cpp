@@ -88,20 +88,29 @@ AppBase::AppBase(APath workingDir): mDiary(workingDir / "diary"), mWakeupTimer(_
 
             co_await self.onBeforeMainLoop();
             for (;;) {
-                if (self.mTemporaryContext.size() <= 1 && self.mNotifications.empty()) {
-                    if (std::uniform_real_distribution(0.0, 1.0)(re) < 0.1) {
-                        // revisit chats when Kuni does nothing.
+                if (self.mTemporaryContext.size() <= 1) {
+                    // Alex2772 (Apr 19 2026):
+                    // This approach is okay to revisit unfinished chats. However, if there are many unread chats,
+                    // a long toolcall chain will occur, leading to context high usage and high processing costs.
+                    // this happens because chat between C++ <-> Kuni's main LLM (mTemporaryContext) never gives
+                    // turn to OpenAIChat::Role::USER, "conversation" happens between OpenAIChat::Role::ASSISTANT and
+                    // OpenAIChat::Role::TOOL only. We ask to dump context on OpenAIChat::Role::USER's only.
+                    //
+                    // Solution: before infinite loop of this coroutine, send notifications on per-chat basis
+                    // to read these chats (onBeforeMainLoop()).
 
-                        // Alex2772 (Apr 19 2026):
-                        // This approach is okay to revisit unfinished chats. However, if there are many unread chats,
-                        // a long toolcall chain will occur, leading to context high usage and high processing costs.
-                        // this happens because chat between C++ <-> Kuni's main LLM (mTemporaryContext) never gives
-                        // turn to OpenAIChat::Role::USER, "conversation" happens between OpenAIChat::Role::ASSISTANT and
-                        // OpenAIChat::Role::TOOL only. We ask to dump context on OpenAIChat::Role::USER's only.
-                        //
-                        // Solution: before infinite loop of this coroutine, send notifications on per-chat basis
-                        // to read these chats (onBeforeMainLoop()).
-                        self.passNotificationToAI("Check your chats.", {}, true);
+                    try {
+                        if (WORKING_MEMORY_PATH.isRegularFileExists()) {
+                            AByteBuffer workingMemory;
+                            workingMemory << AFileInputStream(WORKING_MEMORY_PATH);
+                            // this thing emulates "middle" memory of human - tasks, promises and other stuff
+                            // in timespan 1-3d.
+                            self.passNotificationToAI("<things_to_remember>\n{}\n</things_to_remember>\n"
+                                "You should take action only if you have found a task to do from above.\n"
+                                "Otherwise, just call #wait."_format(AStringView(workingMemory.data(), workingMemory.size())), {}, true);
+                        }
+                    } catch (const AException& e) {
+                        ALogger::err(LOG_TAG) << "Can't open " << WORKING_MEMORY_PATH << ": "<< e;
                     }
                 }
     #ifndef AUI_TESTS_MODULE
