@@ -29,11 +29,7 @@ option(BUILD_SHARED_LIBS OFF)
 set(AUI_VERSION v8.0.0-rc.21)
 
 # Use AUI.Boot
-file(
-        DOWNLOAD
-        https://raw.githubusercontent.com/aui-framework/aui/${AUI_VERSION}/aui.boot.cmake
-        ${CMAKE_CURRENT_BINARY_DIR}/aui.boot.cmake)
-include(${CMAKE_CURRENT_BINARY_DIR}/aui.boot.cmake)
+include(aui.boot.cmake)
 
 set(AUI_COROUTINES "Use C++20 coroutines" ON)
 auib_mark_var_forwardable(AUI_COROUTINES)
