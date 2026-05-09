@@ -28,6 +28,7 @@
 
 #include <range/v3/action/reverse.hpp>
 #include <range/v3/algorithm/contains.hpp>
+#include <range/v3/algorithm/count_if.hpp>
 #include <range/v3/algorithm/remove_if.hpp>
 #include <range/v3/algorithm/sort.hpp>
 
@@ -349,34 +350,6 @@ Use absolute time in your queries.
                     co_await removeAndBanChat(chatId);
 
                     co_return "Success";
-                },
-            });
-
-            actions.insert({
-                .name = "react_with_emoji",
-                .description = "Add an emoji reaction to a message. Use only basic reactions: 👍 👎 ❤️ 🔥 🥰 👏 😁 🤔 🤯 😱 🤬 😢 🎉 🤩 🤮 💩 🙏 👌 🕊 🤡 🥱 🥴 😍 🐳 🌚 🌭 💯 🤣 ⚡️ 🍌 🏆 💔 🤨 😐 🍓 🍾 💋 😈 😴 😭 🤓 👻 👀 🎃 😇 😨 🤝 🤗 🎅 💅 🤪 🗿 🆒 💘 🦄 😘 💊 😎 👾 🤷 😡",
-                .parameters = {
-                    .properties = {
-                        {"chat_id", {.type = "integer", .description = "ID of the chat containing the message to react to."}},
-                        {"message_id", {.type = "integer", .description = "ID of the message to react to. Taken from message_id attribute in <message> tag."}},
-                        {"emoji", {.type = "string", .description = "A single emoji from the allowed list only. Do not use emojis outside the list."}},
-                    },
-                    .required = {"chat_id", "message_id", "emoji"},
-                },
-                .handler = [this](OpenAITools::Ctx ctx) -> AFuture<AString> {
-                    auto chatId = ctx.args["chat_id"].asLongIntOpt().valueOrException("chat_id integer is required");
-                    auto messageId = ctx.args["message_id"].asLongIntOpt().valueOrException("message_id integer required");
-                    auto emoji = ctx.args["emoji"].asStringOpt().valueOrException("emoji required");
-
-                    auto reaction = td::td_api::make_object<td::td_api::addMessageReaction>();
-                    reaction->chat_id_ = chatId;
-                    reaction->message_id_ = messageId;
-                    reaction->reaction_type_ = td::td_api::make_object<td::td_api::reactionTypeEmoji>(emoji.toStdString());
-                    reaction->is_big_ = false;
-                    reaction->update_recent_reactions_ = true;
-
-                    co_await telegram()->sendQueryWithResult(std::move(reaction));
-                    co_return "Reaction {} added successfully."_format(emoji);
                 },
             });
         }
@@ -1320,10 +1293,10 @@ Some channels have reactions enabled. In that case, you can sometimes react with
                         const auto replyTo = ctx.args["reply_to_message_id"].asLongIntOpt().valueOr(0);
 
                         if (message.empty() && photoFilename.empty() && audioFilename.empty()) {
-                            throw AException("At least one of \"text\", \"photo_filename\" or \"audio_filename\" must be populated");
+                            co_return "Error: At least one of \"text\", \"photo_filename\" or \"audio_filename\" must be populated";
                         }
                         if (!photoFilename.empty() && !audioFilename.empty()) {
-                            throw AException("Cannot attach both photo and audio in a single message");
+                            co_return "Error: cannot attach both photo and audio in a single message";
                         }
 
                         if (photoFilename.empty() && audioFilename.empty()) {
@@ -1568,6 +1541,36 @@ Some channels have reactions enabled. In that case, you can sometimes react with
                         }
                         auto image = co_await describePhoto(co_await fetchMedia(chat->photo_->big_));
                         co_return "<chat_photo chat_name=\"{}\">{}</chat_photo>\nThis is avatar photo of \"{}\". When referring to it, let the person know that you are referring to their avatar."_format(chat->title_, image, chat->title_);
+                    },
+                },
+                {
+                    .name = "react_with_emoji",
+                    .description = "Add an emoji reaction to a message. Use only basic reactions: 👍 👎 ❤️ 🔥 🥰 👏 😁 🤔 🤯 😱 🤬 😢 🎉 🤩 🤮 💩 🙏 👌 🕊 🤡 🥱 🥴 😍 🐳 🌚 🌭 💯 🤣 ⚡️ 🍌 🏆 💔 🤨 😐 🍓 🍾 💋 😈 😴 😭 🤓 👻 👀 🎃 😇 😨 🤝 🤗 🎅 💅 🤪 🗿 🆒 💘 🦄 😘 💊 😎 👾 🤷 😡",
+                    .parameters = {
+                        .properties = {
+                            {"message_id", {.type = "integer", .description = "ID of the message to react to. Taken from message_id attribute in <message> tag."}},
+                            {"emoji", {.type = "string", .description = "A single emoji from the allowed list only. Do not use emojis outside the list."}},
+                        },
+                        .required = {"message_id", "emoji"},
+                    },
+                    .handler = [this, chat](OpenAITools::Ctx ctx) -> AFuture<AString> {
+                        if (ctx.args.contains("chat_id")) {
+                            if (ctx.args["chat_id"].asLongInt() != chat->id_) {
+                                co_return "Error: you can't send messages to other chats. Open them first. You are currently in chat \"{}\""_format(chat->title_);
+                            }
+                        }
+                        auto messageId = ctx.args["message_id"].asLongIntOpt().valueOrException("message_id integer required");
+                        auto emoji = ctx.args["emoji"].asStringOpt().valueOrException("emoji required");
+
+                        auto reaction = td::td_api::make_object<td::td_api::addMessageReaction>();
+                        reaction->chat_id_ = chat->id_;
+                        reaction->message_id_ = messageId;
+                        reaction->reaction_type_ = td::td_api::make_object<td::td_api::reactionTypeEmoji>(emoji.toStdString());
+                        reaction->is_big_ = false;
+                        reaction->update_recent_reactions_ = true;
+
+                        co_await telegram()->sendQueryWithResult(std::move(reaction));
+                        co_return "Reaction {} added successfully."_format(emoji);
                     },
                 },
             };

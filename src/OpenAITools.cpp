@@ -49,7 +49,11 @@ AFuture<AVector<OpenAIChat::Message>> OpenAITools::handleToolCalls(const AVector
             .content = removeControlCharacters(co_await [&]() -> AFuture<AString> {
                 try {
                     if (auto c = mHandlers.contains(toolCall.function.name)) {
-                        co_return co_await c->second.handler({*this, AJson::fromString(toolCall.function.arguments)});
+                        co_return co_await c->second.handler({
+                            .tools = *this,
+                            .args = AJson::fromString(toolCall.function.arguments),
+                            .allToolCalls = toolCalls,
+                        });
                     }
                     co_return "tool \"" + toolCall.function.name + "\" is not currently available. Please use another tool instead.";
                 } catch (const AException& e) {

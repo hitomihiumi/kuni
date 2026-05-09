@@ -159,7 +159,11 @@ AppBase::AppBase(APath workingDir): mDiary(workingDir / "diary"), mWakeupTimer(_
                             // Also, this greatly fits in the current architecture, because we can't change notification
                             // text at runtime, BUT we can provide more recent data by giving the notification code
                             // control by calling "open()".
-                            notification.message = co_await action.handler({notification.actions, AJson {}});
+                            notification.message = co_await action.handler({
+                                .tools = notification.actions,
+                                .args = AJson {},
+                                .allToolCalls = {},
+                            });
                         }
                     }
 

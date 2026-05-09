@@ -9,6 +9,7 @@ struct OpenAITools {
     struct Ctx {
         OpenAITools& tools;
         AJson args;
+        const AVector<OpenAIChat::Message::ToolCall>& allToolCalls;
     };
     using Handler = std::function<AFuture<AString>(Ctx ctx)>;
 
